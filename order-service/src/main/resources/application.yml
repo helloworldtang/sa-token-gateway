@@ -1,0 +1,17 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: order-service
+  redis:
+    host: localhost
+    port: 6379
+    password: 
+    database: 0
+
+sa-token:
+  token-name: satoken
+  timeout: 2592000
+  token-style: uuid
+  is-log: true
