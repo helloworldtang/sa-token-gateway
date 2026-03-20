@@ -12,7 +12,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.example</groupId>
+    <groupId>com.tangtang</groupId>
     <artifactId>sa-token-gateway</artifactId>
     <version>1.0.0</version>
     <packaging>pom</packaging>

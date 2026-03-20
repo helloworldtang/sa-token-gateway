@@ -6,7 +6,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.example</groupId>
+        <groupId>com.tangtang</groupId>
         <artifactId>sa-token-gateway</artifactId>
         <version>1.0.0</version>
     </parent>
@@ -22,7 +22,7 @@
             <artifactId>spring-cloud-starter-gateway</artifactId>
         </dependency>
 
-        <!-- Sa-Token 整合 Spring Cloud Gateway -->
+        <!-- Sa-Token 整合 Reactor（WebFlux） -->
         <dependency>
             <groupId>cn.dev33</groupId>
             <artifactId>sa-token-reactor-spring-boot3-starter</artifactId>
@@ -40,13 +40,6 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-pool2</artifactId>
-        </dependency>
-
-        <!-- Nacos 服务发现 -->
-        <dependency>
-            <groupId>com.alibaba.cloud</groupId>
-            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
-            <version>2022.0.0.0</version>
         </dependency>
     </dependencies>
 </project>
