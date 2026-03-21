@@ -1,4 +1,6 @@
 /Users/tangcheng/workspace/github/sa-token-gateway/order-service/src/main/java/com/tangtang/order/config/GlobalExceptionHandler.java
+/Users/tangcheng/workspace/github/sa-token-gateway/order-service/src/main/java/com/tangtang/order/config/StpInterfaceImpl.java
+/Users/tangcheng/workspace/github/sa-token-gateway/order-service/src/main/java/com/tangtang/order/config/SaTokenConfig.java
 /Users/tangcheng/workspace/github/sa-token-gateway/order-service/src/main/java/com/tangtang/order/config/SwaggerConfig.java
 /Users/tangcheng/workspace/github/sa-token-gateway/order-service/src/main/java/com/tangtang/order/OrderServiceApplication.java
 /Users/tangcheng/workspace/github/sa-token-gateway/order-service/src/main/java/com/tangtang/order/controller/OrderController.java
