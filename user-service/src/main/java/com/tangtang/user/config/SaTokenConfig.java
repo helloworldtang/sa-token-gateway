@@ -1,46 +1,22 @@
 package com.tangtang.user.config;
 
-import cn.dev33.satoken.exception.NotLoginException;
-import cn.dev33.satoken.stp.StpUtil;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.context.annotation.Bean;
+import com.tangtang.common.config.SaTokenInterceptor;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
- * Sa-Token 配置
+ * Sa-Token 配置 - 方案2
  * 
- * 后端服务：只验证登录态
+ * 后端服务只验证登录态，不校验权限
  * 权限校验由网关统一处理
  */
 @Configuration
 public class SaTokenConfig implements WebMvcConfigurer {
 
-    @Bean
-    public HandlerInterceptor saInterceptor() {
-        return new HandlerInterceptor() {
-            @Override
-            public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-                try {
-                    StpUtil.checkLogin();
-                    return true;
-                } catch (NotLoginException e) {
-                    response.setContentType("application/json;charset=UTF-8");
-                    response.setStatus(200);
-                    response.getWriter().write("{\"code\":401,\"msg\":\"请先登录\",\"data\":null}");
-                    response.getWriter().flush();
-                    return false;
-                }
-            }
-        };
-    }
-
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(saInterceptor())
+        registry.addInterceptor(new SaTokenInterceptor())
         .addPathPatterns("/**")
         .excludePathPatterns("/auth/login")
         .excludePathPatterns("/swagger-ui/**")

@@ -2,15 +2,15 @@ package com.tangtang.user;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.ComponentScan;
 
 /**
  * 用户服务启动类
  * 
- * 处理用户登录、注册等业务
- * 
- * @author 码骨丹心
+ * 扫描 common-core 模块的组件
  */
 @SpringBootApplication
+@ComponentScan(basePackages = {"com.tangtang.user", "com.tangtang.common"})
 public class UserServiceApplication {
 
     public static void main(String[] args) {

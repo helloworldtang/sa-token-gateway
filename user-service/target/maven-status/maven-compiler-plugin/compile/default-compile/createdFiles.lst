@@ -1,5 +1,4 @@
 com/tangtang/user/UserServiceApplication.class
 com/tangtang/user/config/SaTokenConfig.class
 com/tangtang/user/config/SwaggerConfig.class
-com/tangtang/user/config/SaTokenConfig$1.class
 com/tangtang/user/controller/AuthController.class
