@@ -1,3 +1,4 @@
+/Users/tangcheng/workspace/github/sa-token-gateway/common-core/src/main/java/com/tangtang/common/config/SaTokenConfig.java
 /Users/tangcheng/workspace/github/sa-token-gateway/common-core/src/main/java/com/tangtang/common/config/StpInterfaceImpl.java
 /Users/tangcheng/workspace/github/sa-token-gateway/common-core/src/main/java/com/tangtang/common/config/SaTokenInterceptor.java
 /Users/tangcheng/workspace/github/sa-token-gateway/common-core/src/main/java/com/tangtang/common/config/GlobalExceptionHandler.java

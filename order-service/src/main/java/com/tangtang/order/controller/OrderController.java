@@ -1,6 +1,5 @@
 package com.tangtang.order.controller;
 
-import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,8 +15,8 @@ import java.util.Map;
 /**
  * 订单控制器
  * 
- * 注意：权限校验已由网关统一处理（方案2），
- * 后端服务只验证登录态，不校验权限
+ * 注意：权限校验已由网关统一处理
+ * 后端服务只处理业务逻辑，不需要任何 Sa-Token 配置
  * 
  * @author 码骨丹心
  */
@@ -28,10 +27,8 @@ public class OrderController {
 
     /**
      * 获取订单列表
-     * 权限已在网关校验，后端直接返回数据
      */
-    @Operation(summary = "订单列表", description = "需要登录")
-    @SaCheckLogin
+    @Operation(summary = "订单列表", description = "获取订单列表")
     @GetMapping("/list")
     public SaResult list() {
         List<Map<String, Object>> orders = Arrays.asList(
@@ -45,10 +42,8 @@ public class OrderController {
 
     /**
      * 创建订单
-     * 权限已在网关校验，后端直接处理业务
      */
-    @Operation(summary = "创建订单", description = "需要登录")
-    @SaCheckLogin
+    @Operation(summary = "创建订单", description = "创建新订单")
     @PostMapping("/create")
     public SaResult create(
             @Parameter(description = "商品名称", required = true, example = "iPhone 15")
@@ -57,7 +52,9 @@ public class OrderController {
             @RequestParam Double price) {
         Map<String, Object> order = createOrder(System.currentTimeMillis(), 
                                                 productName, price);
-        order.put("userId", StpUtil.getLoginId());
+        // 获取当前登录用户ID（由网关验证后传递）
+        Object userId = StpUtil.getLoginId();
+        order.put("userId", userId);
         
         return SaResult.ok("订单创建成功").setData(order);
     }
@@ -65,8 +62,7 @@ public class OrderController {
     /**
      * 获取当前用户订单
      */
-    @Operation(summary = "我的订单", description = "获取当前用户的订单，需要登录")
-    @SaCheckLogin
+    @Operation(summary = "我的订单", description = "获取当前用户的订单")
     @GetMapping("/my")
     public SaResult myOrders() {
         Object userId = StpUtil.getLoginId();

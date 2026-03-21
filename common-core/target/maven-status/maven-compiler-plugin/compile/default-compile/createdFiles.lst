@@ -1,3 +1,5 @@
 com/tangtang/common/config/GlobalExceptionHandler.class
+com/tangtang/common/config/SaTokenConfig.class
 com/tangtang/common/config/StpInterfaceImpl.class
 com/tangtang/common/config/SaTokenInterceptor.class
+com/tangtang/common/config/SaTokenConfig$1.class
