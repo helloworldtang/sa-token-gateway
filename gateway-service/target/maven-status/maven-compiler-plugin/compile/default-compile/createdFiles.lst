@@ -1,3 +1,5 @@
 com/tangtang/gateway/config/GatewayRouteConfig.class
+com/tangtang/gateway/config/StpInterfaceImpl.class
 com/tangtang/gateway/config/SaTokenConfig.class
 com/tangtang/gateway/GatewayServiceApplication.class
+com/tangtang/gateway/filter/AuthGatewayFilter.class
