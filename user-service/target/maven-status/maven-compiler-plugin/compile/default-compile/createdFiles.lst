@@ -1,3 +1,4 @@
 com/tangtang/user/config/StpInterfaceImpl.class
 com/tangtang/user/UserServiceApplication.class
+com/tangtang/user/config/SwaggerConfig.class
 com/tangtang/user/controller/AuthController.class

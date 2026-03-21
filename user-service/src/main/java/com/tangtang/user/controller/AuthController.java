@@ -4,6 +4,9 @@ import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaCheckRole;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -14,23 +17,25 @@ import java.util.Map;
  * 
  * @author 码骨丹心
  */
+@Tag(name = "用户认证", description = "登录、登出、用户信息")
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
 
     /**
      * 登录接口
-     * 
-     * 登录成功后，Token 会自动写入 Redis（分布式 Session）
      */
+    @Operation(summary = "用户登录", description = "用户名密码登录，返回 token")
     @PostMapping("/login")
-    public SaResult login(@RequestParam String username, @RequestParam String password) {
+    public SaResult login(
+            @Parameter(description = "用户名 (admin 或 user)", required = true, example = "admin")
+            @RequestParam String username,
+            @Parameter(description = "密码 (123456)", required = true, example = "123456")
+            @RequestParam String password) {
         // 模拟登录校验
         if ("admin".equals(username) && "123456".equals(password)) {
             // 🔥 登录并设置角色权限
             StpUtil.login(10001);
-            
-            // 设置角色（实际应从数据库查询）
             StpUtil.getSession().set("role", "admin");
             StpUtil.getSession().set("permissions", "user:*,order:*,admin:*");
             
@@ -61,6 +66,7 @@ public class AuthController {
     /**
      * 登出
      */
+    @Operation(summary = "用户登出", description = "退出登录状态")
     @PostMapping("/logout")
     public SaResult logout() {
         StpUtil.logout();
@@ -70,6 +76,7 @@ public class AuthController {
     /**
      * 获取当前登录信息
      */
+    @Operation(summary = "获取用户信息", description = "获取当前登录用户信息")
     @SaCheckLogin
     @GetMapping("/info")
     public SaResult info() {
@@ -85,6 +92,7 @@ public class AuthController {
     /**
      * 管理员接口
      */
+    @Operation(summary = "管理员数据", description = "需要 admin 角色")
     @SaCheckRole("admin")
     @GetMapping("/admin/data")
     public SaResult adminData() {

@@ -4,6 +4,9 @@ import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
@@ -14,20 +17,17 @@ import java.util.Map;
 /**
  * 订单控制器
  * 
- * 演示分布式 Session：
- * 在网关登录后，订单服务可以获取到相同的登录态
- * 
  * @author 码骨丹心
  */
+@Tag(name = "订单管理", description = "订单列表、创建订单、获取我的订单")
 @RestController
 @RequestMapping("/order")
 public class OrderController {
 
     /**
      * 获取订单列表
-     * 
-     * 网关已鉴权，这里直接处理业务
      */
+    @Operation(summary = "订单列表", description = "需要 order:list 权限")
     @SaCheckPermission("order:list")
     @GetMapping("/list")
     public SaResult list() {
@@ -43,9 +43,14 @@ public class OrderController {
     /**
      * 创建订单
      */
+    @Operation(summary = "创建订单", description = "需要 order:create 权限")
     @SaCheckPermission("order:create")
     @PostMapping("/create")
-    public SaResult create(@RequestParam String productName, @RequestParam Double price) {
+    public SaResult create(
+            @Parameter(description = "商品名称", required = true, example = "iPhone 15")
+            @RequestParam String productName,
+            @Parameter(description = "价格", required = true, example = "5999")
+            @RequestParam Double price) {
         Map<String, Object> order = createOrder(System.currentTimeMillis(), 
                                                 productName, price);
         order.put("userId", StpUtil.getLoginId());
@@ -56,6 +61,7 @@ public class OrderController {
     /**
      * 获取当前用户订单（演示分布式 Session）
      */
+    @Operation(summary = "我的订单", description = "获取当前用户的订单，需要登录")
     @SaCheckLogin
     @GetMapping("/my")
     public SaResult myOrders() {

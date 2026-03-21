@@ -7,14 +7,12 @@ spring:
   cloud:
     gateway:
       routes:
-        # 用户服务路由 - 前缀 /user -> 后端 /
         - id: user-service
           uri: http://localhost:8081
           predicates:
             - Path=/user/**
           filters:
             - RewritePath=/user(?<segment>/?.*), $\{segment}
-        # 订单服务路由 - 前缀 /order -> 后端 /
         - id: order-service
           uri: http://localhost:8082
           predicates:
@@ -33,3 +31,15 @@ sa-token:
   timeout: 2592000
   token-style: uuid
   is-log: true
+
+# Knife4j Swagger 配置
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
