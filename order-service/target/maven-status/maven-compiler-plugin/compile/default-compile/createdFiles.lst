@@ -1,6 +1,5 @@
 com/tangtang/order/config/SaTokenConfig.class
-com/tangtang/order/config/StpInterfaceImpl.class
-com/tangtang/order/config/SwaggerConfig.class
 com/tangtang/order/OrderServiceApplication.class
-com/tangtang/order/config/GlobalExceptionHandler.class
+com/tangtang/order/config/SaTokenConfig$1.class
+com/tangtang/order/config/SwaggerConfig.class
 com/tangtang/order/controller/OrderController.class
