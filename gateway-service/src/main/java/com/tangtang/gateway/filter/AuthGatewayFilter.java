@@ -3,7 +3,7 @@ package com.tangtang.gateway.filter;
 import cn.dev33.satoken.SaManager;
 import cn.dev33.satoken.exception.NotLoginException;
 import cn.dev33.satoken.exception.NotPermissionException;
-import cn.dev33.satoken.stp.StpInterface;
+import cn.dev33.satoken.router.SaRouter;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -16,42 +16,17 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * 网关鉴权过滤器
  * 
  * 职责：
  * 1. Token 验证
- * 2. 权限校验（手动调用 StpInterface）
+ * 2. 权限校验（调用 StpInterfaceImpl 查询权限）
  * 3. 将 userId 传递给后端服务
  */
 @Component
 public class AuthGatewayFilter implements GlobalFilter, Ordered {
-
-    /**
-     * 用户权限数据
-     */
-    private static final Map<Long, List<String>> USER_PERMISSIONS = new HashMap<>();
-    private static final Map<Long, List<String>> USER_ROLES = new HashMap<>();
-
-    static {
-        // admin 用户
-        USER_PERMISSIONS.put(10001L, Arrays.asList(
-            "user:list", "user:add", "user:delete",
-            "order:list", "order:create", "order:delete"
-        ));
-        USER_ROLES.put(10001L, Arrays.asList("admin"));
-
-        // 普通用户
-        USER_PERMISSIONS.put(10002L, Arrays.asList(
-            "user:list", "order:list"
-        ));
-        USER_ROLES.put(10002L, Arrays.asList("user"));
-    }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -72,24 +47,18 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
         try {
             // 验证 Token，获取用户ID
             Object loginId = SaManager.getStpLogic("login").getLoginIdByToken(token);
-            Long userId = Long.parseLong(String.valueOf(loginId));
 
             // 权限校验
-            String requiredPermission = getRequiredPermission(path);
-            if (requiredPermission != null) {
-                // 手动检查权限
-                if (!hasPermission(userId, requiredPermission)) {
-                    return forbidden(exchange, "缺少权限: " + requiredPermission);
-                }
-            }
-
-            // 角色校验
-            String requiredRole = getRequiredRole(path);
-            if (requiredRole != null) {
-                if (!hasRole(userId, requiredRole)) {
-                    return forbidden(exchange, "缺少角色: " + requiredRole);
-                }
-            }
+            SaRouter.match(path, "/order/create", router -> 
+                SaManager.getStpLogic("login").checkPermission("order:create"));
+            SaRouter.match(path, "/order/delete", router -> 
+                SaManager.getStpLogic("login").checkPermission("order:delete"));
+            SaRouter.match(path, "/order/**", router -> 
+                SaManager.getStpLogic("login").checkPermission("order:list"));
+            SaRouter.match(path, "/user/**", router -> 
+                SaManager.getStpLogic("login").checkPermission("user:list"));
+            SaRouter.match(path, "/auth/admin/**", router -> 
+                SaManager.getStpLogic("login").checkRole("admin"));
 
             // 将用户ID传递给后端服务
             ServerHttpRequest modifiedRequest = request.mutate()
@@ -107,16 +76,6 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
         }
     }
 
-    private boolean hasPermission(Long userId, String permission) {
-        List<String> permissions = USER_PERMISSIONS.get(userId);
-        return permissions != null && permissions.contains(permission);
-    }
-
-    private boolean hasRole(Long userId, String role) {
-        List<String> roles = USER_ROLES.get(userId);
-        return roles != null && roles.contains(role);
-    }
-
     private boolean isExcluded(String path) {
         return path.contains("/favicon") ||
                path.contains("/swagger") ||
@@ -125,19 +84,6 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
                path.contains("/webjars") ||
                path.contains("/auth/login") ||
                path.contains("/auth/register");
-    }
-
-    private String getRequiredPermission(String path) {
-        if (path.equals("/order/create")) return "order:create";
-        if (path.equals("/order/delete")) return "order:delete";
-        if (path.startsWith("/order/")) return "order:list";
-        if (path.startsWith("/user/")) return "user:list";
-        return null;
-    }
-
-    private String getRequiredRole(String path) {
-        if (path.equals("/auth/admin/data")) return "admin";
-        return null;
     }
 
     private Mono<Void> unauthorized(ServerWebExchange exchange, String message) {
