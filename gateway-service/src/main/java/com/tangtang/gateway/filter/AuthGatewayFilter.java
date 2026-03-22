@@ -2,8 +2,6 @@ package com.tangtang.gateway.filter;
 
 import cn.dev33.satoken.SaManager;
 import cn.dev33.satoken.exception.NotLoginException;
-import cn.dev33.satoken.exception.NotPermissionException;
-import cn.dev33.satoken.router.SaRouter;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -16,17 +14,32 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 网关鉴权过滤器
- * 
- * 职责：
- * 1. Token 验证
- * 2. 权限校验（调用 StpInterfaceImpl 查询权限）
- * 3. 将 userId 传递给后端服务
  */
 @Component
 public class AuthGatewayFilter implements GlobalFilter, Ordered {
+
+    private static final Map<Long, List<String>> USER_PERMISSIONS = new HashMap<>();
+    private static final Map<Long, List<String>> USER_ROLES = new HashMap<>();
+
+    static {
+        USER_PERMISSIONS.put(10001L, Arrays.asList(
+            "user:list", "user:add", "user:delete",
+            "order:list", "order:create", "order:delete"
+        ));
+        USER_ROLES.put(10001L, Arrays.asList("admin"));
+
+        USER_PERMISSIONS.put(10002L, Arrays.asList(
+            "user:list", "order:list"
+        ));
+        USER_ROLES.put(10002L, Arrays.asList("user"));
+    }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -47,18 +60,13 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
         try {
             // 验证 Token，获取用户ID
             Object loginId = SaManager.getStpLogic("login").getLoginIdByToken(token);
+            Long userId = Long.parseLong(String.valueOf(loginId));
 
             // 权限校验
-            SaRouter.match(path, "/order/create", router -> 
-                SaManager.getStpLogic("login").checkPermission("order:create"));
-            SaRouter.match(path, "/order/delete", router -> 
-                SaManager.getStpLogic("login").checkPermission("order:delete"));
-            SaRouter.match(path, "/order/**", router -> 
-                SaManager.getStpLogic("login").checkPermission("order:list"));
-            SaRouter.match(path, "/user/**", router -> 
-                SaManager.getStpLogic("login").checkPermission("user:list"));
-            SaRouter.match(path, "/auth/admin/**", router -> 
-                SaManager.getStpLogic("login").checkRole("admin"));
+            String result = checkPermission(path, userId);
+            if (result != null) {
+                return forbidden(exchange, result);
+            }
 
             // 将用户ID传递给后端服务
             ServerHttpRequest modifiedRequest = request.mutate()
@@ -69,11 +77,38 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
 
         } catch (NotLoginException e) {
             return unauthorized(exchange, "Token 无效或已过期");
-        } catch (NotPermissionException e) {
-            return forbidden(exchange, "缺少权限: " + e.getPermission());
         } catch (Exception e) {
             return unauthorized(exchange, "请先登录");
         }
+    }
+
+    private String checkPermission(String path, Long userId) {
+        List<String> permissions = USER_PERMISSIONS.get(userId);
+
+        if (path.contains("/order/create")) {
+            if (permissions == null || !permissions.contains("order:create")) {
+                return "缺少权限: order:create";
+            }
+        } else if (path.contains("/order/delete")) {
+            if (permissions == null || !permissions.contains("order:delete")) {
+                return "缺少权限: order:delete";
+            }
+        } else if (path.contains("/order/")) {
+            if (permissions == null || !permissions.contains("order:list")) {
+                return "缺少权限: order:list";
+            }
+        } else if (path.contains("/user/")) {
+            if (permissions == null || !permissions.contains("user:list")) {
+                return "缺少权限: user:list";
+            }
+        } else if (path.contains("/auth/admin/")) {
+            List<String> roles = USER_ROLES.get(userId);
+            if (roles == null || !roles.contains("admin")) {
+                return "缺少角色: admin";
+            }
+        }
+
+        return null;
     }
 
     private boolean isExcluded(String path) {
