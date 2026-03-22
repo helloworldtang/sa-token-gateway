@@ -21,6 +21,10 @@ import java.util.Map;
 
 /**
  * 网关鉴权过滤器
+ * 
+ * 路由规则：
+ * - /users/** → user-service (认证、用户管理)
+ * - /orders/** → order-service (订单管理)
  */
 @Component
 public class AuthGatewayFilter implements GlobalFilter, Ordered {
@@ -29,14 +33,16 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
     private static final Map<Long, List<String>> USER_ROLES = new HashMap<>();
 
     static {
+        // admin 用户 - 拥有所有权限
         USER_PERMISSIONS.put(10001L, Arrays.asList(
-            "user:list", "user:add", "user:delete",
-            "order:list", "order:create", "order:delete"
+            "users:list", "users:add", "users:delete",
+            "orders:list", "orders:create", "orders:delete"
         ));
         USER_ROLES.put(10001L, Arrays.asList("admin"));
 
+        // 普通用户 - 只有部分权限
         USER_PERMISSIONS.put(10002L, Arrays.asList(
-            "user:list", "order:list"
+            "users:list", "orders:list"
         ));
         USER_ROLES.put(10002L, Arrays.asList("user"));
     }
@@ -85,23 +91,28 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
     private String checkPermission(String path, Long userId) {
         List<String> permissions = USER_PERMISSIONS.get(userId);
 
-        if (path.contains("/order/create")) {
-            if (permissions == null || !permissions.contains("order:create")) {
-                return "缺少权限: order:create";
+        // orders 相关权限
+        if (path.contains("/orders/create")) {
+            if (permissions == null || !permissions.contains("orders:create")) {
+                return "缺少权限: orders:create";
             }
-        } else if (path.contains("/order/delete")) {
-            if (permissions == null || !permissions.contains("order:delete")) {
-                return "缺少权限: order:delete";
+        } else if (path.contains("/orders/delete")) {
+            if (permissions == null || !permissions.contains("orders:delete")) {
+                return "缺少权限: orders:delete";
             }
-        } else if (path.contains("/order/")) {
-            if (permissions == null || !permissions.contains("order:list")) {
-                return "缺少权限: order:list";
+        } else if (path.startsWith("/orders/")) {
+            if (permissions == null || !permissions.contains("orders:list")) {
+                return "缺少权限: orders:list";
             }
-        } else if (path.contains("/user/")) {
-            if (permissions == null || !permissions.contains("user:list")) {
-                return "缺少权限: user:list";
+        }
+        // users 相关权限
+        else if (path.startsWith("/users/")) {
+            if (permissions == null || !permissions.contains("users:list")) {
+                return "缺少权限: users:list";
             }
-        } else if (path.contains("/auth/admin/")) {
+        }
+        // admin 角色
+        else if (path.contains("/admin/")) {
             List<String> roles = USER_ROLES.get(userId);
             if (roles == null || !roles.contains("admin")) {
                 return "缺少角色: admin";
@@ -117,8 +128,8 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
                path.contains("/v3/api-docs") ||
                path.contains("/doc.html") ||
                path.contains("/webjars") ||
-               path.contains("/auth/login") ||
-               path.contains("/auth/register");
+               path.contains("/users/auth/login") ||
+               path.contains("/users/auth/register");
     }
 
     private Mono<Void> unauthorized(ServerWebExchange exchange, String message) {

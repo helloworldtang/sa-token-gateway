@@ -6,7 +6,79 @@ spring:
     name: gateway-service
   cloud:
     gateway:
-      routes: []
+      routes:
+        # ===== users 服务 =====
+        # Swagger（具体路径放在前面）
+        - id: users-swagger-doc
+          uri: http://localhost:8081
+          predicates:
+            - Path=/users/doc.html
+          filters:
+            - SetPath=/doc.html
+        - id: users-swagger-ui
+          uri: http://localhost:8081
+          predicates:
+            - Path=/users/swagger-ui/**
+          filters:
+            - RewritePath=/users/swagger-ui/(?<segment>.*), /swagger-ui/${segment}
+        - id: users-api-docs
+          uri: http://localhost:8081
+          predicates:
+            - Path=/users/v3/api-docs/**
+          filters:
+            - RewritePath=/users/v3/api-docs/(?<segment>.*), /v3/api-docs/${segment}
+        - id: users-webjars
+          uri: http://localhost:8081
+          predicates:
+            - Path=/users/webjars/**
+          filters:
+            - RewritePath=/users/webjars/(?<segment>.*), /webjars/${segment}
+        # 认证接口
+        - id: users-auth
+          uri: http://localhost:8081
+          predicates:
+            - Path=/users/auth/**
+          filters:
+            - RewritePath=/users/auth(?<segment>.*), /auth${segment}
+        # 其他 users 请求
+        - id: users-other
+          uri: http://localhost:8081
+          predicates:
+            - Path=/users/**
+
+        # ===== orders 服务 =====
+        # Swagger（具体路径放在前面）
+        - id: orders-swagger-doc
+          uri: http://localhost:8082
+          predicates:
+            - Path=/orders/doc.html
+          filters:
+            - SetPath=/doc.html
+        - id: orders-swagger-ui
+          uri: http://localhost:8082
+          predicates:
+            - Path=/orders/swagger-ui/**
+          filters:
+            - RewritePath=/orders/swagger-ui/(?<segment>.*), /swagger-ui/${segment}
+        - id: orders-api-docs
+          uri: http://localhost:8082
+          predicates:
+            - Path=/orders/v3/api-docs/**
+          filters:
+            - RewritePath=/orders/v3/api-docs/(?<segment>.*), /v3/api-docs/${segment}
+        - id: orders-webjars
+          uri: http://localhost:8082
+          predicates:
+            - Path=/orders/webjars/**
+          filters:
+            - RewritePath=/orders/webjars/(?<segment>.*), /webjars/${segment}
+        # 业务接口（放在最后）
+        - id: orders-business
+          uri: http://localhost:8082
+          predicates:
+            - Path=/orders/**
+          filters:
+            - RewritePath=/orders(?<segment>.*), /order${segment}
 
   redis:
     host: localhost
