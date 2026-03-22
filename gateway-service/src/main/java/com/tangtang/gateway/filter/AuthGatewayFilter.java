@@ -3,7 +3,7 @@ package com.tangtang.gateway.filter;
 import cn.dev33.satoken.SaManager;
 import cn.dev33.satoken.exception.NotLoginException;
 import cn.dev33.satoken.exception.NotPermissionException;
-import cn.dev33.satoken.stp.StpUtil;
+import cn.dev33.satoken.stp.StpInterface;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -22,9 +22,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 网关鉴权过滤器 - 方案2
+ * 网关鉴权过滤器
  * 
- * 在路由之前执行鉴权，确保请求不会被转发到后端服务
+ * 职责：
+ * 1. Token 验证
+ * 2. 权限校验（手动调用 StpInterface）
+ * 3. 将 userId 传递给后端服务
  */
 @Component
 public class AuthGatewayFilter implements GlobalFilter, Ordered {
@@ -33,29 +36,35 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
      * 用户权限数据
      */
     private static final Map<Long, List<String>> USER_PERMISSIONS = new HashMap<>();
+    private static final Map<Long, List<String>> USER_ROLES = new HashMap<>();
 
     static {
+        // admin 用户
         USER_PERMISSIONS.put(10001L, Arrays.asList(
             "user:list", "user:add", "user:delete",
             "order:list", "order:create", "order:delete"
         ));
+        USER_ROLES.put(10001L, Arrays.asList("admin"));
+
+        // 普通用户
         USER_PERMISSIONS.put(10002L, Arrays.asList(
             "user:list", "order:list"
         ));
+        USER_ROLES.put(10002L, Arrays.asList("user"));
     }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getPath().value();
+        String token = request.getHeaders().getFirst("satoken");
 
         // 白名单放行
         if (isExcluded(path)) {
             return chain.filter(exchange);
         }
 
-        // 获取 Token
-        String token = request.getHeaders().getFirst("satoken");
+        // Token 为空
         if (token == null || token.isEmpty()) {
             return unauthorized(exchange, "请先登录");
         }
@@ -68,9 +77,17 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
             // 权限校验
             String requiredPermission = getRequiredPermission(path);
             if (requiredPermission != null) {
-                List<String> permissions = USER_PERMISSIONS.get(userId);
-                if (permissions == null || !permissions.contains(requiredPermission)) {
+                // 手动检查权限
+                if (!hasPermission(userId, requiredPermission)) {
                     return forbidden(exchange, "缺少权限: " + requiredPermission);
+                }
+            }
+
+            // 角色校验
+            String requiredRole = getRequiredRole(path);
+            if (requiredRole != null) {
+                if (!hasRole(userId, requiredRole)) {
+                    return forbidden(exchange, "缺少角色: " + requiredRole);
                 }
             }
 
@@ -78,7 +95,7 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
             ServerHttpRequest modifiedRequest = request.mutate()
                     .header("satoken-user-id", String.valueOf(loginId))
                     .build();
-            
+
             return chain.filter(exchange.mutate().request(modifiedRequest).build());
 
         } catch (NotLoginException e) {
@@ -90,28 +107,36 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
         }
     }
 
+    private boolean hasPermission(Long userId, String permission) {
+        List<String> permissions = USER_PERMISSIONS.get(userId);
+        return permissions != null && permissions.contains(permission);
+    }
+
+    private boolean hasRole(Long userId, String role) {
+        List<String> roles = USER_ROLES.get(userId);
+        return roles != null && roles.contains(role);
+    }
+
     private boolean isExcluded(String path) {
         return path.contains("/favicon") ||
                path.contains("/swagger") ||
                path.contains("/v3/api-docs") ||
                path.contains("/doc.html") ||
                path.contains("/webjars") ||
-               path.contains("/user/auth/login");
+               path.contains("/auth/login") ||
+               path.contains("/auth/register");
     }
 
     private String getRequiredPermission(String path) {
-        if (path.contains("/order/create")) {
-            return "order:create";
-        }
-        if (path.contains("/order/delete")) {
-            return "order:delete";
-        }
-        if (path.contains("/order/")) {
-            return "order:list";
-        }
-        if (path.contains("/user/")) {
-            return "user:list";
-        }
+        if (path.equals("/order/create")) return "order:create";
+        if (path.equals("/order/delete")) return "order:delete";
+        if (path.startsWith("/order/")) return "order:list";
+        if (path.startsWith("/user/")) return "user:list";
+        return null;
+    }
+
+    private String getRequiredRole(String path) {
+        if (path.equals("/auth/admin/data")) return "admin";
         return null;
     }
 
@@ -127,15 +152,13 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(HttpStatus.OK);
         response.getHeaders().add("Content-Type", "application/json;charset=UTF-8");
-        
         String body = String.format("{\"code\":%d,\"msg\":\"%s\",\"data\":null}", code, message);
         DataBuffer buffer = response.bufferFactory().wrap(body.getBytes(StandardCharsets.UTF_8));
-        
         return response.writeWith(Mono.just(buffer));
     }
 
     @Override
     public int getOrder() {
-        return -100; // 优先级高，在路由之前执行
+        return -100;
     }
 }
