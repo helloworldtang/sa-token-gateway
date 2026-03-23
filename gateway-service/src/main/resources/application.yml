@@ -99,16 +99,18 @@ sa-token:
   token-style: uuid
   is-log: true
 
-# SpringDoc 配置：Swagger UI 显示多个服务文档
+# SpringDoc 配置：Swagger UI 下拉菜单
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
-    # 在下拉菜单中显示多个服务
+    # 下拉菜单中显示所有后端服务
     urls:
       - url: /v3/api-docs/users
-        name: 用户服务
+        name: 用户服务 (User Service)
       - url: /v3/api-docs/orders
-        name: 订单服务
+        name: 订单服务 (Order Service)
+    # 默认选中第一个
+    urls-primary-name: 用户服务 (User Service)
   api-docs:
     path: /v3/api-docs
 
@@ -117,6 +119,7 @@ knife4j:
   enable: true
   setting:
     language: zh_cn
+    # 显示服务下拉菜单
     enable-swagger-select: true
 
 # 应用配置

@@ -5,7 +5,6 @@ import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.servers.Server;
-import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,17 +13,24 @@ import java.util.List;
 /**
  * 网关 Swagger 聚合配置
  * 
- * 通过下拉菜单展示不同后端服务的 API 文档
+ * 方案：网关本身不生成 API 文档，而是代理后端服务的文档
+ * 通过 Swagger UI 的 urls 配置，在下拉菜单中展示所有后端服务
  * 
  * 访问方式：
- * - http://localhost:8080/swagger-ui.html
+ * - http://localhost:8080/swagger-ui.html (Swagger UI)
  * - http://localhost:8080/doc.html (Knife4j)
+ * 
+ * 下拉菜单中的选项：
+ * - 用户服务: /v3/api-docs/users
+ * - 订单服务: /v3/api-docs/orders
  */
 @Configuration
 public class SwaggerConfig {
 
     /**
      * 网关 OpenAPI 信息
+     * 
+     * 这只是网关本身的信息，实际的 API 文档来自后端服务
      */
     @Bean
     public OpenAPI gatewayOpenAPI() {
@@ -42,33 +48,5 @@ public class SwaggerConfig {
                 .servers(List.of(
                         new Server().url("http://localhost:8080").description("网关地址")
                 ));
-    }
-
-    /**
-     * 用户服务 API 分组
-     * 
-     * 通过 /v3/api-docs/users 访问用户服务文档
-     */
-    @Bean
-    public GroupedOpenApi usersApi() {
-        return GroupedOpenApi.builder()
-                .group("用户服务")
-                .displayName("用户服务 - User Service")
-                .pathsToMatch("/users/**")
-                .build();
-    }
-
-    /**
-     * 订单服务 API 分组
-     * 
-     * 通过 /v3/api-docs/orders 访问订单服务文档
-     */
-    @Bean
-    public GroupedOpenApi ordersApi() {
-        return GroupedOpenApi.builder()
-                .group("订单服务")
-                .displayName("订单服务 - Order Service")
-                .pathsToMatch("/orders/**")
-                .build();
     }
 }
