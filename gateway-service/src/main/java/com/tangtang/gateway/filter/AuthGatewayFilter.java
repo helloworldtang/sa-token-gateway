@@ -63,7 +63,13 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getPath().value();
+        
+        // 优先从 Header 读取 Token，其次从 Cookie 读取（支持 Swagger UI 的 Cookie 方式）
         String token = request.getHeaders().getFirst("satoken");
+        if (token == null || token.isEmpty()) {
+            // 尝试从 Cookie 读取
+            token = getTokenFromCookie(request);
+        }
 
         // Swagger 路径处理
         if (isSwaggerPath(path)) {
@@ -193,6 +199,25 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
         return path.contains("/favicon") ||
                path.contains("/users/auth/login") ||
                path.contains("/users/auth/register");
+    }
+
+    /**
+     * 从 Cookie 中读取 Token
+     * 支持 Swagger UI 的 Cookie 方式传递 Token
+     */
+    private String getTokenFromCookie(ServerHttpRequest request) {
+        HttpHeaders headers = request.getHeaders();
+        String cookie = headers.getFirst("cookie");
+        if (cookie != null) {
+            // 解析 Cookie 字符串，查找 satoken=xxx
+            for (String part : cookie.split(";")) {
+                String trimmed = part.trim();
+                if (trimmed.startsWith("satoken=")) {
+                    return trimmed.substring("satoken=".length());
+                }
+            }
+        }
+        return null;
     }
 
     private Mono<Void> requireBasicAuth(ServerWebExchange exchange, String message) {
