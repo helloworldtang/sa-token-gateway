@@ -2,10 +2,13 @@ package com.tangtang.gateway.filter;
 
 import cn.dev33.satoken.SaManager;
 import cn.dev33.satoken.exception.NotLoginException;
+import com.tangtang.gateway.config.AppGatewayProperties;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
@@ -14,38 +17,23 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.HashMap;
+import java.util.Base64;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 网关鉴权过滤器
  * 
- * 路由规则：
- * - /users/** → user-service (认证、用户管理)
- * - /orders/** → order-service (订单管理)
+ * 职责：
+ * 1. Swagger Basic 认证（生产环境保护）
+ * 2. Token 验证
+ * 3. 权限校验（从配置中心读取，支持动态更新）
+ * 4. 将 userId 传递给后端服务
  */
 @Component
 public class AuthGatewayFilter implements GlobalFilter, Ordered {
 
-    private static final Map<Long, List<String>> USER_PERMISSIONS = new HashMap<>();
-    private static final Map<Long, List<String>> USER_ROLES = new HashMap<>();
-
-    static {
-        // admin 用户 - 拥有所有权限
-        USER_PERMISSIONS.put(10001L, Arrays.asList(
-            "users:list", "users:add", "users:delete",
-            "orders:list", "orders:create", "orders:delete"
-        ));
-        USER_ROLES.put(10001L, Arrays.asList("admin"));
-
-        // 普通用户 - 只有部分权限
-        USER_PERMISSIONS.put(10002L, Arrays.asList(
-            "users:list", "orders:list"
-        ));
-        USER_ROLES.put(10002L, Arrays.asList("user"));
-    }
+    @Autowired
+    private AppGatewayProperties gatewayProperties;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -53,7 +41,21 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
         String path = request.getPath().value();
         String token = request.getHeaders().getFirst("satoken");
 
-        // 白名单放行
+        // Swagger 路径处理
+        if (isSwaggerPath(path)) {
+            // 生产环境禁用 Swagger
+            if (!gatewayProperties.getSwagger().isEnabled()) {
+                return forbidden(exchange, "Swagger 已在生产环境禁用");
+            }
+            // Basic 认证
+            String authResult = checkBasicAuth(request);
+            if (authResult != null) {
+                return requireBasicAuth(exchange, authResult);
+            }
+            return chain.filter(exchange);
+        }
+
+        // 白名单放行（登录接口）
         if (isExcluded(path)) {
             return chain.filter(exchange);
         }
@@ -68,10 +70,10 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
             Object loginId = SaManager.getStpLogic("login").getLoginIdByToken(token);
             Long userId = Long.parseLong(String.valueOf(loginId));
 
-            // 权限校验
-            String result = checkPermission(path, userId);
-            if (result != null) {
-                return forbidden(exchange, result);
+            // 权限校验（从配置中心读取）
+            String permissionError = checkPermission(path, userId);
+            if (permissionError != null) {
+                return forbidden(exchange, permissionError);
             }
 
             // 将用户ID传递给后端服务
@@ -88,48 +90,84 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
         }
     }
 
+    /**
+     * Swagger Basic 认证校验
+     */
+    private String checkBasicAuth(ServerHttpRequest request) {
+        String authorization = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        if (authorization == null || !authorization.startsWith("Basic ")) {
+            return "需要 Basic 认证";
+        }
+        try {
+            String credentials = new String(Base64.getDecoder().decode(authorization.substring(6)));
+            String[] parts = credentials.split(":", 2);
+            if (parts.length == 2) {
+                String username = parts[0];
+                String password = parts[1];
+                AppGatewayProperties.SwaggerConfig swagger = gatewayProperties.getSwagger();
+                if (swagger.getUsername().equals(username) && swagger.getPassword().equals(password)) {
+                    return null; // 认证通过
+                }
+            }
+        } catch (Exception ignored) {}
+        return "用户名或密码错误";
+    }
+
+    /**
+     * 权限校验（从配置中心读取，支持动态更新）
+     */
     private String checkPermission(String path, Long userId) {
-        List<String> permissions = USER_PERMISSIONS.get(userId);
+        AppGatewayProperties.UserPermission userPermission =
+                gatewayProperties.getUserPermissions().get(String.valueOf(userId));
+
+        if (userPermission == null) {
+            return "用户不存在";
+        }
+
+        List<String> permissions = userPermission.getPermissions();
+        List<String> roles = userPermission.getRoles();
 
         // orders 相关权限
         if (path.contains("/orders/create")) {
-            if (permissions == null || !permissions.contains("orders:create")) {
-                return "缺少权限: orders:create";
-            }
+            if (!permissions.contains("orders:create")) return "缺少权限: orders:create";
         } else if (path.contains("/orders/delete")) {
-            if (permissions == null || !permissions.contains("orders:delete")) {
-                return "缺少权限: orders:delete";
-            }
+            if (!permissions.contains("orders:delete")) return "缺少权限: orders:delete";
         } else if (path.startsWith("/orders/")) {
-            if (permissions == null || !permissions.contains("orders:list")) {
-                return "缺少权限: orders:list";
-            }
+            if (!permissions.contains("orders:list")) return "缺少权限: orders:list";
         }
         // users 相关权限
         else if (path.startsWith("/users/")) {
-            if (permissions == null || !permissions.contains("users:list")) {
-                return "缺少权限: users:list";
-            }
+            if (!permissions.contains("users:list")) return "缺少权限: users:list";
         }
         // admin 角色
         else if (path.contains("/admin/")) {
-            List<String> roles = USER_ROLES.get(userId);
-            if (roles == null || !roles.contains("admin")) {
-                return "缺少角色: admin";
-            }
+            if (!roles.contains("admin")) return "缺少角色: admin";
         }
 
         return null;
     }
 
+    private boolean isSwaggerPath(String path) {
+        return path.contains("/doc.html") ||
+               path.contains("/swagger-ui") ||
+               path.contains("/v3/api-docs") ||
+               path.contains("/webjars");
+    }
+
     private boolean isExcluded(String path) {
         return path.contains("/favicon") ||
-               path.contains("/swagger") ||
-               path.contains("/v3/api-docs") ||
-               path.contains("/doc.html") ||
-               path.contains("/webjars") ||
                path.contains("/users/auth/login") ||
                path.contains("/users/auth/register");
+    }
+
+    private Mono<Void> requireBasicAuth(ServerWebExchange exchange, String message) {
+        ServerHttpResponse response = exchange.getResponse();
+        response.setStatusCode(HttpStatus.UNAUTHORIZED);
+        response.getHeaders().add("WWW-Authenticate", "Basic realm=\"Swagger UI\"");
+        response.getHeaders().add("Content-Type", "application/json;charset=UTF-8");
+        String body = String.format("{\"code\":401,\"msg\":\"%s\",\"data\":null}", message);
+        DataBuffer buffer = response.bufferFactory().wrap(body.getBytes(StandardCharsets.UTF_8));
+        return response.writeWith(Mono.just(buffer));
     }
 
     private Mono<Void> unauthorized(ServerWebExchange exchange, String message) {
