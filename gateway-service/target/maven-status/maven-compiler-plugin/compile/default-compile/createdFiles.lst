@@ -1,5 +1,6 @@
+com/tangtang/gateway/GatewayServiceApplication.class
+com/tangtang/gateway/filter/AuthGatewayFilter.class
+com/tangtang/gateway/config/SwaggerConfig.class
 com/tangtang/gateway/config/AppGatewayProperties$SwaggerConfig.class
 com/tangtang/gateway/config/AppGatewayProperties.class
 com/tangtang/gateway/config/RouteConfig.class
-com/tangtang/gateway/GatewayServiceApplication.class
-com/tangtang/gateway/filter/AuthGatewayFilter.class

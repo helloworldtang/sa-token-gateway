@@ -192,7 +192,9 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
         return path.contains("/doc.html") ||
                path.contains("/swagger-ui") ||
                path.contains("/v3/api-docs") ||
-               path.contains("/webjars");
+               path.contains("/webjars") ||
+               path.contains("/swagger-resources") ||
+               path.contains("/swagger-config");
     }
 
     private boolean isExcluded(String path) {
