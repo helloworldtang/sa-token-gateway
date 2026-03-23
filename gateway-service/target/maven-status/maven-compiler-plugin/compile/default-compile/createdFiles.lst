@@ -1,5 +1,4 @@
 com/tangtang/gateway/config/WebClientConfig.class
-com/tangtang/gateway/controller/SwaggerProxyController.class
 com/tangtang/gateway/GatewayServiceApplication.class
 com/tangtang/gateway/filter/AuthGatewayFilter.class
 com/tangtang/gateway/config/SwaggerConfig.class

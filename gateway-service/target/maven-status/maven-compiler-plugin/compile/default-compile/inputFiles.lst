@@ -2,6 +2,5 @@
 /Users/tangcheng/workspace/github/sa-token-gateway/gateway-service/src/main/java/com/tangtang/gateway/config/RouteConfig.java
 /Users/tangcheng/workspace/github/sa-token-gateway/gateway-service/src/main/java/com/tangtang/gateway/config/AppGatewayProperties.java
 /Users/tangcheng/workspace/github/sa-token-gateway/gateway-service/src/main/java/com/tangtang/gateway/filter/AuthGatewayFilter.java
-/Users/tangcheng/workspace/github/sa-token-gateway/gateway-service/src/main/java/com/tangtang/gateway/controller/SwaggerProxyController.java
 /Users/tangcheng/workspace/github/sa-token-gateway/gateway-service/src/main/java/com/tangtang/gateway/config/WebClientConfig.java
 /Users/tangcheng/workspace/github/sa-token-gateway/gateway-service/src/main/java/com/tangtang/gateway/GatewayServiceApplication.java

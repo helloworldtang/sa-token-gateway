@@ -1,6 +1,11 @@
 server:
   port: 8080
 
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web: DEBUG
+
 spring:
   application:
     name: gateway-service
@@ -50,6 +55,18 @@ spring:
             - Path=/users/**
 
         # ===== orders 服务 =====
+        # 更具体的路由必须在前面，否则会被 catch-all 路由先匹配
+        
+        # 1. 订单业务路由：/orders/order/** → /order/**
+        - id: orders-business
+          uri: http://localhost:8082
+          predicates:
+            - Path=/orders/order/**
+          filters:
+            # 去掉 /orders 前缀，保留 /order/**
+            - StripPrefix=1
+        
+        # 2. 文档和 API 相关路由
         - id: orders-doc
           uri: http://localhost:8082
           predicates:
@@ -80,12 +97,15 @@ spring:
             - Path=/orders/webjars/**
           filters:
             - RewritePath=/orders/webjars/(?<segment>.*), /webjars/${segment}
-        - id: orders-business
+        
+        # 3. 其他路由（catch-all）
+        - id: orders-other
           uri: http://localhost:8082
           predicates:
             - Path=/orders/**
           filters:
-            - RewritePath=/orders/(?<segment>.*), /order/${segment}
+            # 去掉 /orders 前缀
+            - StripPrefix=1
 
   redis:
     host: localhost

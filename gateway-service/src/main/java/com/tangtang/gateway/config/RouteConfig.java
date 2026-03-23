@@ -61,6 +61,15 @@ public class RouteConfig {
                                 .uri("http://localhost:8081"))
 
                 // ===== orders 服务 =====
+                // 更具体的路由必须在前面
+                
+                // 1. 订单业务路由：/orders/order/** → /order/**
+                .route("orders-business",
+                        r -> r.path("/orders/order/**")
+                                .filters(f -> f.stripPrefix(1))
+                                .uri("http://localhost:8082"))
+                
+                // 2. 文档和 API 相关路由
                 .route("orders-doc",
                         r -> r.path("/orders/doc.html")
                                 .filters(f -> f.setPath("/doc.html"))
@@ -85,9 +94,11 @@ public class RouteConfig {
                         r -> r.path("/orders/webjars/**")
                                 .filters(f -> f.rewritePath("/orders/webjars/(?<segment>.*)", "/webjars/${segment}"))
                                 .uri("http://localhost:8082"))
-                .route("orders-business",
+                
+                // 3. 其他路由（catch-all）
+                .route("orders-other",
                         r -> r.path("/orders/**")
-                                .filters(f -> f.rewritePath("/orders/(?<segment>.*)", "/order/${segment}"))
+                                .filters(f -> f.stripPrefix(1))
                                 .uri("http://localhost:8082"))
 
                 // ===== Catch-all: /v3/api-docs/** (默认转发到 user-service) =====
