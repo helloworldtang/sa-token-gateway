@@ -2,12 +2,16 @@ package com.tangtang.gateway.filter;
 
 import cn.dev33.satoken.SaManager;
 import cn.dev33.satoken.exception.NotLoginException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tangtang.gateway.config.AppGatewayProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -19,21 +23,41 @@ import reactor.core.publisher.Mono;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 网关鉴权过滤器
  * 
  * 职责：
  * 1. Swagger Basic 认证（生产环境保护）
- * 2. Token 验证
- * 3. 权限校验（从配置中心读取，支持动态更新）
+ * 2. Token 验证（Sa-Token + Redis）
+ * 3. 权限校验（从 Redis 读取，user-service 启动时写入，实时生效）
  * 4. 将 userId 传递给后端服务
+ * 
+ * Redis 权限数据格式（key: perm:user:{userId}）：
+ * {
+ *   "userId": 10001,
+ *   "username": "admin",
+ *   "roles": ["admin"],
+ *   "permissions": ["orders:list", "orders:create", ...]
+ * }
  */
 @Component
 public class AuthGatewayFilter implements GlobalFilter, Ordered {
 
+    private static final Logger log = LoggerFactory.getLogger(AuthGatewayFilter.class);
+
+    /** 与 user-service 的 PermissionDataInitializer 保持一致 */
+    private static final String PERM_KEY_PREFIX = "perm:user:";
+
     @Autowired
     private AppGatewayProperties gatewayProperties;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -43,11 +67,9 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
 
         // Swagger 路径处理
         if (isSwaggerPath(path)) {
-            // 生产环境禁用 Swagger
             if (!gatewayProperties.getSwagger().isEnabled()) {
                 return forbidden(exchange, "Swagger 已在生产环境禁用");
             }
-            // Basic 认证
             String authResult = checkBasicAuth(request);
             if (authResult != null) {
                 return requireBasicAuth(exchange, authResult);
@@ -70,8 +92,8 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
             Object loginId = SaManager.getStpLogic("login").getLoginIdByToken(token);
             Long userId = Long.parseLong(String.valueOf(loginId));
 
-            // 权限校验（从配置中心读取）
-            String permissionError = checkPermission(path, userId);
+            // 从 Redis 读取权限数据
+            String permissionError = checkPermissionFromRedis(path, userId);
             if (permissionError != null) {
                 return forbidden(exchange, permissionError);
             }
@@ -86,8 +108,57 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
         } catch (NotLoginException e) {
             return unauthorized(exchange, "Token 无效或已过期");
         } catch (Exception e) {
+            log.error("鉴权异常: path={}, error={}", path, e.getMessage());
             return unauthorized(exchange, "请先登录");
         }
+    }
+
+    /**
+     * 从 Redis 读取权限数据并校验
+     * 
+     * user-service 启动时写入，权限变更时实时刷新，无需重启网关
+     */
+    @SuppressWarnings("unchecked")
+    private String checkPermissionFromRedis(String path, Long userId) {
+        String key = PERM_KEY_PREFIX + userId;
+        String json = redisTemplate.opsForValue().get(key);
+
+        if (json == null) {
+            log.warn("用户权限数据不存在: userId={}", userId);
+            return "用户权限数据不存在，请联系管理员";
+        }
+
+        try {
+            Map<String, Object> permData = objectMapper.readValue(json, Map.class);
+            List<String> permissions = (List<String>) permData.get("permissions");
+            List<String> roles = (List<String>) permData.get("roles");
+
+            if (permissions == null) permissions = List.of();
+            if (roles == null) roles = List.of();
+
+            // orders 相关权限
+            if (path.contains("/orders/create")) {
+                if (!permissions.contains("orders:create")) return "缺少权限: orders:create";
+            } else if (path.contains("/orders/delete")) {
+                if (!permissions.contains("orders:delete")) return "缺少权限: orders:delete";
+            } else if (path.startsWith("/orders/")) {
+                if (!permissions.contains("orders:list")) return "缺少权限: orders:list";
+            }
+            // users 相关权限
+            else if (path.startsWith("/users/")) {
+                if (!permissions.contains("users:list")) return "缺少权限: users:list";
+            }
+            // admin 角色
+            else if (path.contains("/admin/")) {
+                if (!roles.contains("admin")) return "缺少角色: admin";
+            }
+
+        } catch (Exception e) {
+            log.error("解析权限数据失败: userId={}, error={}", userId, e.getMessage());
+            return "权限数据异常";
+        }
+
+        return null;
     }
 
     /**
@@ -102,49 +173,13 @@ public class AuthGatewayFilter implements GlobalFilter, Ordered {
             String credentials = new String(Base64.getDecoder().decode(authorization.substring(6)));
             String[] parts = credentials.split(":", 2);
             if (parts.length == 2) {
-                String username = parts[0];
-                String password = parts[1];
                 AppGatewayProperties.SwaggerConfig swagger = gatewayProperties.getSwagger();
-                if (swagger.getUsername().equals(username) && swagger.getPassword().equals(password)) {
-                    return null; // 认证通过
+                if (swagger.getUsername().equals(parts[0]) && swagger.getPassword().equals(parts[1])) {
+                    return null;
                 }
             }
         } catch (Exception ignored) {}
         return "用户名或密码错误";
-    }
-
-    /**
-     * 权限校验（从配置中心读取，支持动态更新）
-     */
-    private String checkPermission(String path, Long userId) {
-        AppGatewayProperties.UserPermission userPermission =
-                gatewayProperties.getUserPermissions().get(String.valueOf(userId));
-
-        if (userPermission == null) {
-            return "用户不存在";
-        }
-
-        List<String> permissions = userPermission.getPermissions();
-        List<String> roles = userPermission.getRoles();
-
-        // orders 相关权限
-        if (path.contains("/orders/create")) {
-            if (!permissions.contains("orders:create")) return "缺少权限: orders:create";
-        } else if (path.contains("/orders/delete")) {
-            if (!permissions.contains("orders:delete")) return "缺少权限: orders:delete";
-        } else if (path.startsWith("/orders/")) {
-            if (!permissions.contains("orders:list")) return "缺少权限: orders:list";
-        }
-        // users 相关权限
-        else if (path.startsWith("/users/")) {
-            if (!permissions.contains("users:list")) return "缺少权限: users:list";
-        }
-        // admin 角色
-        else if (path.contains("/admin/")) {
-            if (!roles.contains("admin")) return "缺少角色: admin";
-        }
-
-        return null;
     }
 
     private boolean isSwaggerPath(String path) {

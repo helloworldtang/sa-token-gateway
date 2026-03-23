@@ -22,26 +22,7 @@ sa-token:
 # 应用配置（支持配置中心动态更新）
 app:
   gateway:
-    # Swagger Basic 认证（生产环境设 enabled: false）
     swagger:
-      enabled: true
+      enabled: true        # 生产环境设为 false
       username: admin
       password: swagger123
-    # 用户权限数据（实际应从数据库/配置中心读取）
-    user-permissions:
-      10001:
-        permissions:
-          - users:list
-          - users:add
-          - users:delete
-          - orders:list
-          - orders:create
-          - orders:delete
-        roles:
-          - admin
-      10002:
-        permissions:
-          - users:list
-          - orders:list
-        roles:
-          - user

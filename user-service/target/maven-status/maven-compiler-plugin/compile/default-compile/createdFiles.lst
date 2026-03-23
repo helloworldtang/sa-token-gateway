@@ -1,3 +1,6 @@
 com/tangtang/user/UserServiceApplication.class
-com/tangtang/user/config/SwaggerConfig.class
+com/tangtang/user/model/UserPermissionData.class
 com/tangtang/user/controller/AuthController.class
+com/tangtang/user/controller/PermissionController.class
+com/tangtang/user/config/SwaggerConfig.class
+com/tangtang/user/init/PermissionDataInitializer.class
