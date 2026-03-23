@@ -16,6 +16,10 @@ import java.util.List;
  * 
  * 通过 server 配置告知 Swagger UI 实际访问路径（网关前缀）
  * 这样 Swagger UI 请求 api-docs 时会带上正确的前缀
+ * 
+ * 当通过网关访问时：
+ * - 直接访问后端：http://localhost:8081/auth/login
+ * - 通过网关访问：http://localhost:8080/users/auth/login
  */
 @Configuration
 public class SwaggerConfig {
@@ -41,9 +45,14 @@ public class SwaggerConfig {
                                 .name("MIT")
                                 .url("https://opensource.org/licenses/MIT")));
 
-        // 配置 server 路径，让 Swagger UI 通过网关前缀请求 api-docs
+        // 配置 server 路径，让 Swagger UI 通过网关前缀请求 API
+        // 这样在网关的 Swagger UI 中点击 "Try it out" 时，
+        // 请求会带上 /users 前缀
         if (serverPrefix != null && !serverPrefix.isEmpty()) {
-            openAPI.servers(List.of(new Server().url(serverPrefix).description("网关访问")));
+            openAPI.servers(List.of(
+                    new Server().url(serverPrefix).description("通过网关访问"),
+                    new Server().url("").description("直接访问")
+            ));
         }
 
         return openAPI;

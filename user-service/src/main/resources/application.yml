@@ -22,5 +22,10 @@ springdoc:
     path: /swagger-ui.html
   api-docs:
     path: /v3/api-docs
-  # 通过网关访问时的前缀（让 Swagger UI 请求 api-docs 时带上正确路径）
+  # 通过网关访问时的前缀（让 Swagger UI 请求 api-docs 时带上正确的路径）
   server-prefix: /users
+
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn

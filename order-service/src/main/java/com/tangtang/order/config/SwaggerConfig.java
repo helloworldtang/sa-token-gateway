@@ -37,7 +37,10 @@ public class SwaggerConfig {
                                 .url("https://opensource.org/licenses/MIT")));
 
         if (serverPrefix != null && !serverPrefix.isEmpty()) {
-            openAPI.servers(List.of(new Server().url(serverPrefix).description("网关访问")));
+            openAPI.servers(List.of(
+                    new Server().url(serverPrefix).description("通过网关访问"),
+                    new Server().url("").description("直接访问")
+            ));
         }
 
         return openAPI;

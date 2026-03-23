@@ -13,3 +13,8 @@ springdoc:
     path: /v3/api-docs
   # 通过网关访问时的前缀
   server-prefix: /orders
+
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
