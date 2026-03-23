@@ -17,6 +17,9 @@ import org.springframework.context.annotation.Configuration;
  * - /users/v3/api-docs/** → /v3/api-docs/**
  * - /users/swagger-ui/** → /swagger-ui/**
  * - /users/webjars/** → /webjars/**
+ * 
+ * 注意：/v3/api-docs 和 /v3/api-docs/** 作为 catch-all，
+ * 通过 Referer 或 Host 头判断转发到哪个服务
  */
 @Configuration
 public class RouteConfig {
@@ -25,7 +28,6 @@ public class RouteConfig {
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
         return builder.routes()
                 // ===== users 服务 =====
-                // Swagger 路由（具体路径优先，去掉 /users 前缀）
                 .route("users-doc",
                         r -> r.path("/users/doc.html")
                                 .filters(f -> f.setPath("/doc.html"))
@@ -50,7 +52,6 @@ public class RouteConfig {
                         r -> r.path("/users/webjars/**")
                                 .filters(f -> f.rewritePath("/users/webjars/(?<segment>.*)", "/webjars/${segment}"))
                                 .uri("http://localhost:8081"))
-                // 业务路由（通配放最后）
                 .route("users-auth",
                         r -> r.path("/users/auth/**")
                                 .filters(f -> f.rewritePath("/users/auth/(?<segment>.*)", "/auth/${segment}"))
@@ -60,7 +61,6 @@ public class RouteConfig {
                                 .uri("http://localhost:8081"))
 
                 // ===== orders 服务 =====
-                // Swagger 路由（具体路径优先，去掉 /orders 前缀）
                 .route("orders-doc",
                         r -> r.path("/orders/doc.html")
                                 .filters(f -> f.setPath("/doc.html"))
@@ -85,11 +85,20 @@ public class RouteConfig {
                         r -> r.path("/orders/webjars/**")
                                 .filters(f -> f.rewritePath("/orders/webjars/(?<segment>.*)", "/webjars/${segment}"))
                                 .uri("http://localhost:8082"))
-                // 业务路由（通配放最后，去掉 /orders 前缀转发到 /order）
                 .route("orders-business",
                         r -> r.path("/orders/**")
                                 .filters(f -> f.rewritePath("/orders/(?<segment>.*)", "/order/${segment}"))
                                 .uri("http://localhost:8082"))
+
+                // ===== Catch-all: /v3/api-docs/** (默认转发到 user-service) =====
+                // 当 Swagger UI 直接请求 /v3/api-docs 时，默认路由到 user-service
+                // 如需访问 order-service，请使用 /orders/v3/api-docs
+                .route("default-api-docs",
+                        r -> r.path("/v3/api-docs/**")
+                                .uri("http://localhost:8081"))
+                .route("default-api-docs-root",
+                        r -> r.path("/v3/api-docs")
+                                .uri("http://localhost:8081"))
                 .build();
     }
 }
